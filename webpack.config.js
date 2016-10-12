@@ -1,17 +1,12 @@
-/**
- * React Starter Kit (https://www.reactstarterkit.com/)
- *
- * Copyright © 2014-2016 Kriasoft, LLC. All rights reserved.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE.txt file in the root directory of this source tree.
- */
 
 'use strict'
 
 const webpack = require('webpack')
 const path = require('path')
+var HtmlWebpackPlugin = require('html-webpack-plugin');
+var ExtractTextPlugin = require('extract-text-webpack-plugin');
 
+const DEBUG = true
 const AUTOPREFIXER_BROWSERS = [
   'Android 2.3',
   'Android >= 4',
@@ -23,18 +18,11 @@ const AUTOPREFIXER_BROWSERS = [
   'Safari >= 7.1',
 ];
 
-//
-// Common configuration chunk to be used for both
-// client-side (client.js) and server-side (server.js) bundles
-// -----------------------------------------------------------------------------
 
-module.exports = {
-  context: path.resolve(__dirname, 'src'),
-
-  entry : {
-    html : './index.html',
-    js : './index.js',
-    vendor : [
+function entry() {
+  return {
+    js: __dirname + "/client/index.js",
+    vendor: [
       'react',
       'react-dom',
       'react-redux',
@@ -42,100 +30,94 @@ module.exports = {
       'react-router-redux',
       'redux'
     ]
-  },
-  output: {
-    path: path.resolve(__dirname, 'build'),
-    filename : 'bundle.js'
-  },
+  }
+}
 
+function output() {
+  return {
+    path: __dirname + "/build",
+    filename: "[name]-[hash].js"
+  }
+}
+
+
+function loaders() {
+  return [
+    {
+      test: /\.txt$/,
+      loader: 'raw',
+    },
+    {
+      test: /\.json$/,
+      loader: "json"
+    },
+    {
+      test: /\.(png|jpg|jpeg|gif|svg|woff|woff2)$/,
+      loader: 'url-loader',
+      query: {
+        name: DEBUG ? '[path][name].[ext]?[hash]' : '[hash].[ext]',
+        limit: 10000,
+      },
+    },
+    {
+      test: /\.(eot|ttf|wav|mp3)$/,
+      loader: 'file-loader',
+      query: {
+        name: DEBUG ? '[path][name].[ext]?[hash]' : '[hash].[ext]',
+      },
+    },
+    {
+      test: /\.js$/,
+      exclude: /node_modules/,
+      loader: 'babel',
+      query: {
+        presets: ['react', 'es2015', 'stage-0',],
+      }
+    },
+    {
+      test: /\.css$/,
+      loader: ExtractTextPlugin.extract('style', 'css?modules!postcss?pack=default')
+    }
+  ]
+}
+
+
+function plugins() {
+  return [
+    new webpack.DefinePlugin({
+      'process.env': { NODE_ENV: JSON.stringify(process.env.NODE_ENV || 'production') }
+    }),
+    new HtmlWebpackPlugin({
+      template: __dirname + "/client/index.html"
+    }),
+    new webpack.optimize.CommonsChunkPlugin('vendor', 'vendor.bundle.js'),
+    new webpack.optimize.OccurenceOrderPlugin(),
+    new webpack.optimize.UglifyJsPlugin({
+      output: {
+        comments: false,  // remove all comments
+      },
+      compress: {
+        warnings: false
+      }
+    }),
+    new ExtractTextPlugin("[name]-[hash].css")
+  ]
+}
+
+
+
+module.exports = {
+
+  entry: entry(),
+  output: output(),
   module: {
-    loaders: [
-      {
-        test : /\.html$/,
-        loader : 'file?name=[name].[ext]'
-      },
-
-      {
-        test: /\.jsx?$/,
-        loader: 'babel-loader',
-        include: [
-          path.resolve(__dirname, './src'),
-        ],
-        query: {
-          // https://babeljs.io/docs/usage/options/
-          babelrc: false,
-          presets: [
-            'react',
-            'es2015',
-            'stage-0',
-          ],
-          plugins: [
-            'transform-runtime',
-            'transform-react-remove-prop-types',
-            'transform-react-constant-elements',
-            'transform-react-inline-elements'
-          ]
-        },
-      },
-      {
-        test: /\.css/,
-        loaders: [
-          'style-loader',
-          `css-loader?${JSON.stringify({sourceMap: true, modules: true, localIdentName: '[hash:base64:4]', minimize: true })}`,
-          'postcss-loader?pack=default',
-        ],
-      },
-      {
-        test: /\.scss$/,
-        loaders: [
-          'style-loader',
-          `css-loader?${JSON.stringify({ sourceMap: true, minimize: true })}`,
-          'postcss-loader?pack=sass',
-          'sass-loader',
-        ],
-      },
-      {
-        test: /\.json$/,
-        loader: 'json-loader',
-      },
-      {
-        test: /\.txt$/,
-        loader: 'raw-loader',
-      },
-      {
-        test: /\.(png|jpg|jpeg|gif|svg|woff|woff2)$/,
-        loader: 'url-loader',
-        query: {
-          name: '[hash].[ext]',
-          limit: 10000,
-        },
-      },
-      {
-        test: /\.(eot|ttf|wav|mp3)$/,
-        loader: 'file-loader',
-        query: {
-          name: '[hash].[ext]',
-        },
-      },
-    ],
+    loaders: loaders()
   },
-
-  resolve: {
-    root: path.resolve(__dirname, './src'),
-    modulesDirectories: ['node_modules'],
-    extensions: ['', '.webpack.js', '.web.js', '.js', '.jsx', '.json'],
-  },
-
-  stats: {
-    colors: true,
-    timings: true,
-  },
-
-  postcss(bundler) {
+  plugins: plugins(),
+  postcss: function (bundler) {
     return {
       default: [
         // Transfer @import rule by inlining content, e.g. @import 'normalize.css'
-        // https://github.com/postcss/postcss-import
         require('postcss-partial-import')({ addDependencyTo: bundler }),
         // W3C variables, e.g. :root { --color: red; } div { background: var(--color); }
         // https://github.com/postcss/postcss-custom-properties
@@ -176,30 +158,25 @@ module.exports = {
         // Add vendor prefixes to CSS rules using values from caniuse.com
         // https://github.com/postcss/autoprefixer
         require('autoprefixer')({ browsers: AUTOPREFIXER_BROWSERS }),
-        // Sass-like mixins
         require('postcss-mixins')(),
-        // Sass-like variables and methods
         require('postcss-advanced-variables')(),
-        // Sass-like nested selectors
         require('postcss-nested')(),
-        // W3C and Sass-like extend methods
-        require('postcss-extend')
-      ],
-      sass: [
-        require('autoprefixer')({ browsers: AUTOPREFIXER_BROWSERS }),
-      ],
+        require('postcss-extend')()
+      ]
     };
   },
-  plugins: [
-    new webpack.optimize.CommonsChunkPlugin('vendor', 'vendor.bundle.js'),
-    new webpack.DefinePlugin({
-      'process.env': { NODE_ENV: JSON.stringify(process.env.NODE_ENV || 'production') }
-    }),
-    new webpack.optimize.UglifyJsPlugin({compress: {warnings: false } })
-  ],
+
+  stats: {
+    colors: true,
+    timings: true,
+  },
+  resolve: {
+    root: path.resolve(__dirname, './client'),
+    modulesDirectories: ['node_modules'],
+    extensions: ['', '.webpack.js', '.web.js', '.js', '.jsx', '.json'],
+  },
   devServer: {
-    contentBase: './src',
+    contentBase: './client',
     hot: true
   }
-};
-
+}

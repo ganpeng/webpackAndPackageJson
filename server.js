@@ -21,18 +21,6 @@ app.get('/', function(req, res) {
     res.sendFile(path.join(__dirname, 'build/index.html'));
 });
 
-app.get('/user', function(req, res) {
-  res.json({
-    ok : 0,
-    data : {
-      user : {
-        name : 'louisGan',
-        age : 28
-      }
-    }
-  })
-})
-
 
 app.listen(3000, 'localhost', function(err) {
     if (err) {
